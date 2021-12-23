@@ -1,0 +1,2 @@
+[servers]
+wordpress1 ansible_ssh_host=184.72.108.43
