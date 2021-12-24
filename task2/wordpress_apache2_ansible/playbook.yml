@@ -1,5 +1,6 @@
 ---
-- hosts: all
+- name: Installing wordpress in vm using ansible
+  hosts: wordpress
   become: true
   vars_files:
     - vars/default.yml
@@ -22,7 +23,7 @@
   # Apache Configuration
     - name: Create document root
       file:
-        path: "/var/www/{{ http_host }}"
+        path: "/srv/www"
         state: directory
         owner: "www-data"
         group: "www-data"
@@ -32,7 +33,7 @@
     - name: Set up Apache VirtualHost
       template:
         src: "files/apache.conf.j2"
-        dest: "/etc/apache2/sites-available/{{ http_conf }}"
+        dest: "/etc/apache2/sites-available/wordpress.conf"
       notify: Reload Apache
       tags: [ apache ]
 
@@ -52,50 +53,36 @@
       tags: [ apache ]
 
   # MySQL Configuration
-    - name: Set the root password
-      mysql_user:
-        name: root
-        password: "{{ mysql_root_password }}"
-        login_unix_socket: /var/run/mysqld/mysqld.sock
-      tags: [ mysql, mysql-root ]
+    # - name: Set the root password
+    #   become: true
+    #   mysql_user:
+    #     name: root
+    #     # password: "{{ mysql_root_password }}"
+    #     login_unix_socket: /var/run/mysqld/mysqld.sock
+    #   tags: [ mysql, mysql-root ]
 
-    - name: Remove all anonymous user accounts
-      mysql_user:
-        name: ''
-        host_all: yes
-        state: absent
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-      tags: [ mysql ]
+    # - name: Creates database for WordPress
+    #   mysql_db:
+    #     become: true
+    #     name: "{{ mysql_db }}"
+    #     state: present
+    #     login_user: root
+    #     # login_password: "{{ mysql_root_password }}"
+    #   tags: [ mysql ]
 
-    - name: Remove the MySQL test database
-      mysql_db:
-        name: test
-        state: absent
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-      tags: [ mysql ]
-
-    - name: Creates database for WordPress
-      mysql_db:
-        name: "{{ mysql_db }}"
-        state: present
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-      tags: [ mysql ]
-
-    - name: Create MySQL user for WordPress
-      mysql_user:
-        name: "{{ mysql_user }}"
-        password: "{{ mysql_password }}"
-        priv: "{{ mysql_db }}.*:ALL"
-        state: present
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-      tags: [ mysql ]
+    # - name: Create MySQL user for WordPress
+    #   become: true
+    #   mysql_user:
+    #     name: "{{ mysql_user }}"
+    #     password: "{{ mysql_password }}"
+    #     priv: "{{ mysql_db }}.*:ALL"
+    #     state: present
+    #     login_user: root
+    #     # login_password: "{{ mysql_root_password }}"
+    #   tags: [ mysql ]
 
   # UFW Configuration
-    - name: "UFW - Allow HTTP on port {{ http_port }}"
+    - name: "UFW - Allow HTTP on port 80"
       ufw:
         rule: allow
         port: "{{ http_port }}"
@@ -106,14 +93,14 @@
     - name: Download and unpack latest WordPress
       unarchive:
         src: https://wordpress.org/latest.tar.gz
-        dest: "/var/www/{{ http_host }}"
+        dest: "/srv/www"
         remote_src: yes
-        creates: "/var/www/{{ http_host }}/wordpress"
+        creates: "/srv/www/wordpress"
       tags: [ wordpress ]
 
     - name: Set ownership
       file:
-        path: "/var/www/{{ http_host }}"
+        path: "/srv/www"
         state: directory
         recurse: yes
         owner: www-data
@@ -121,17 +108,17 @@
       tags: [ wordpress ]
 
     - name: Set permissions for directories
-      shell: "/usr/bin/find /var/www/{{ http_host }}/wordpress/ -type d -exec chmod 750 {} \\;"
+      shell: "/usr/bin/find /srv/www/wordpress/ -type d -exec chmod 750 {} \\;"
       tags: [ wordpress ]
 
     - name: Set permissions for files
-      shell: "/usr/bin/find /var/www/{{ http_host }}/wordpress/ -type f -exec chmod 640 {} \\;"
+      shell: "/usr/bin/find /srv/www/wordpress/ -type f -exec chmod 640 {} \\;"
       tags: [ wordpress ]
 
     - name: Set up wp-config
       template:
         src: "files/wp-config.php.j2"
-        dest: "/var/www/{{ http_host }}/wordpress/wp-config.php"
+        dest: "/srv/www/wordpress/wp-config.php"
       tags: [ wordpress ]
 
   handlers:
